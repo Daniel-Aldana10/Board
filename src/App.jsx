@@ -20,7 +20,7 @@ function App() {
     brushSizeRef.current = brushSize;
   }, [brushSize]);
   useEffect(() => {
-    socketRef.current = new WebSocket('ws://localhost:8080/bbService'); // cambia por tu URL real
+    socketRef.current = new WebSocket('wss://boardbackend-fca7gde4f6eagrfm.canadacentral-01.azurewebsites.net/bbService'); // cambia por tu URL real
   
     socketRef.current.onopen = () => {
       console.log('Conectado al servidor WebSocket');
