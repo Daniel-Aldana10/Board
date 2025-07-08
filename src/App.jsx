@@ -9,6 +9,8 @@ function App() {
   const [brushSize, setBrushSize] = useState(20);
   const brushColorRef = useRef(brushColor);
   const brushSizeRef = useRef(brushSize);
+  const socketRef = useRef(null);
+
 
   useEffect(() => {
     brushColorRef.current = brushColor;
@@ -17,6 +19,40 @@ function App() {
   useEffect(() => {
     brushSizeRef.current = brushSize;
   }, [brushSize]);
+  useEffect(() => {
+    socketRef.current = new WebSocket('ws://localhost:8080/bbService'); // cambia por tu URL real
+  
+    socketRef.current.onopen = () => {
+      console.log('Conectado al servidor WebSocket');
+    };
+  
+    socketRef.current.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+    
+        if (msg.type === 'draw') {
+          const { x, y, color, size } = msg;
+          p5Instance.current?.noStroke();
+          p5Instance.current?.fill(color);
+          p5Instance.current?.ellipse(x, y, size, size);
+        }
+    
+        if (msg.type === 'clear') {
+          p5Instance.current?.background(255);
+        }
+    
+      } catch (e) {
+        console.error('Mensaje no JSON:', event.data);
+      }
+    };
+    
+  
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const sketch = (p) => {
@@ -27,11 +63,29 @@ function App() {
 
       p.draw = () => {
         if (p.mouseIsPressed) {
+          const x = p.mouseX;
+          const y = p.mouseY;
+          const color = brushColorRef.current;
+          const size = brushSizeRef.current;
+      
           p.noStroke();
-          p.fill(brushColorRef.current);
-          p.ellipse(p.mouseX, p.mouseY, brushSizeRef.current, brushSizeRef.current);
+          p.fill(color);
+          p.ellipse(x, y, size, size);
+      
+    
+          if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            const message = {
+              type: 'draw',
+              x,
+              y,
+              color,
+              size
+            };
+            socketRef.current.send(JSON.stringify(message));
+          }
         }
       };
+      
     };
 
     p5Instance.current = new p5(sketch, sketchRef.current);
@@ -46,8 +100,14 @@ function App() {
 
  
   const handleClear = () => {
+   
     if (p5Instance.current) {
       p5Instance.current.background(255);
+    }
+  
+   
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'clear' }));
     }
   };
 
