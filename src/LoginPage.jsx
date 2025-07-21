@@ -2,57 +2,36 @@ import { useEffect, useRef } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 
-const CLIENT_ID = "472653236504-vqt0k1g8sseajkrvdqqfqisefoc4n9cs.apps.googleusercontent.com";
+const CLIENT_ID = import.meta.env.VITE_CLIENT_ID;
 
-function LoginPage({ setUser, setTicket }) {
+function LoginPage({ setUser, setIdToken, setTicket }) {
   const navigate = useNavigate();
   const googleButtonRef = useRef(null);
 
   useEffect(() => {
-    // Cargar el script de Google de forma manual
     const loadGoogleScript = () => {
       if (window.google) {
         initializeGoogleSignIn();
         return;
       }
-
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        if (window.google) {
-          initializeGoogleSignIn();
-        }
-      };
-      script.onerror = () => {
-        console.error('Error cargando el script de Google');
-        // Fallback: mostrar mensaje de error
-        if (googleButtonRef.current) {
-          googleButtonRef.current.innerHTML = `
-            <div style="padding: 10px; border: 1px solid #ccc; border-radius: 5px; background: #f9f9f9;">
-              <p>Error cargando Google Sign-In</p>
-              <button onclick="window.location.reload()" style="padding: 5px 10px;">Recargar página</button>
-            </div>
-          `;
-        }
+        if (window.google) initializeGoogleSignIn();
       };
       document.head.appendChild(script);
     };
 
     const initializeGoogleSignIn = () => {
-      if (!window.google?.accounts?.id) {
-        console.error('Google Identity Services no está disponible');
-        return;
-      }
-
+      if (!window.google?.accounts?.id) return;
       window.google.accounts.id.initialize({
         client_id: CLIENT_ID,
         callback: handleLoginSuccess,
         auto_select: false,
         cancel_on_tap_outside: false
       });
-
       if (googleButtonRef.current) {
         window.google.accounts.id.renderButton(googleButtonRef.current, {
           theme: 'outline',
@@ -62,54 +41,35 @@ function LoginPage({ setUser, setTicket }) {
           shape: 'rectangular'
         });
       }
-
-      // Opcional: mostrar One Tap si está disponible
-      try {
-        window.google.accounts.id.prompt();
-      } catch (e) {
-        console.log('One Tap no disponible:', e);
-      }
+      try { window.google.accounts.id.prompt(); } catch {}
     };
 
     loadGoogleScript();
-
-    // Cleanup
     return () => {
-      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-      if (existingScript) {
-        existingScript.remove();
-      }
+      const existingScript = document.querySelector('script[src=\"https://accounts.google.com/gsi/client\"]');
+      if (existingScript) existingScript.remove();
     };
+    // eslint-disable-next-line
   }, []);
 
   const handleLoginSuccess = async (credentialResponse) => {
     try {
       const id_token = credentialResponse.credential;
       const decoded = jwtDecode(id_token);
-      
-      const res = await fetch('https://boardbackend-fca7gde4f6eagrfm.canadacentral-01.azurewebsites.net/api/ws-ticket', {
+      const res = await fetch(import.meta.env.VITE_BACK +'/api/ws-ticket', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + id_token,
           'Content-Type': 'application/json'
         }
       });
-
-      if (!res.ok) {
-        throw new Error(`Error ${res.status}: No se pudo obtener el ticket`);
-      }
-
+      if (!res.ok) throw new Error('No autorizado');
       const data = await res.json();
-      
-      // Actualizar estados
       setUser(decoded);
+      setIdToken(id_token);
       setTicket(data.ticket);
-      
-      // Navegar
       navigate('/board', { replace: true });
-      
     } catch (error) {
-      console.error('Error en login:', error);
       alert('Error solicitando ticket: ' + error.message);
     }
   };
