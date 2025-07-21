@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import p5 from 'p5';
 
-//const WS_URL = 'wss://boardbackend-fca7gde4f6eagrfm.canadacentral-01.azurewebsites.net/bbService';
-const WS_URL = 'wss:/localhost:8080/bbService';
+const WS_URL = 'wss://boardbackend-fca7gde4f6eagrfm.canadacentral-01.azurewebsites.net/bbService';
+
 
 const RECONNECT_INTERVAL = 3000;
 
